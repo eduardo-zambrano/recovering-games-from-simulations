@@ -9,9 +9,10 @@ The paper argues that simulations of Arthur's (1994) El Farol Bar Problem implem
 ## Repository contents
 
 ```
-repro/
+.
 ├── README.md              this file
-├── code/                  C source code (Arthur's original simulation + instrumentation)
+├── LICENSE                MIT for new code; Arthur (1994) attribution
+├── code/                  C source code (Arthur's original simulation)
 │   ├── Project1.cpp       main loop
 │   ├── define.h           parameters (TOTPERSONS=100, CRITNUM=60, ETA=0.05, etc.)
 │   ├── agents.h           agent setup, predictor selection, attendance decisions
@@ -25,8 +26,11 @@ repro/
 │   ├── arthurs_attendance.dat     seed-42, full 10,000-period attendance series
 │   ├── arthurs_conditional.dat    E[A_{t+1} | A_t] data for Figure 2
 │   └── arthurs_histogram.dat      cross-sectional predictor-usage histogram
-├── scripts/               Python scripts for post-processing and figure data generation
-└── figures/               Compiled paper figures (PDFs of Figure 1 and Figure 2)
+└── scripts/               Python scripts for post-processing and figure data generation
+    ├── figure1_data.py    300-day post-burn-in window for Figure 1
+    ├── figure2_data.py    conditional-mean E[A_{t+1} | A_t] for Figure 2
+    ├── moments.py         summary statistics (mean / median / SD / lag-1 AC / W-W)
+    └── multi_seed.py      run simulator across multiple seeds; CSV summary
 ```
 
 ## The 21 predictors in Arthur's code
