@@ -1,0 +1,7 @@
+# This project's reproduction scripts use only the Python standard library.
+# Listed here is the minimum interpreter version that has been tested.
+#
+# Python: >= 3.10
+#
+# No third-party packages are required for the post-processing pipeline.
+# The simulator is C++ (see code/Makefile); a C++14-capable compiler suffices.
