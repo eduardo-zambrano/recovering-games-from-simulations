@@ -6,23 +6,18 @@ of moments. Used to produce the 50-seed robustness statistics reported in
 the paper.
 
 Usage:
-    python multi_seed.py --seeds 1-50 --output multi_seed.csv \
-        --executable ../code/elfarol --burn-in 500
+    python multi_seed.py --seeds 1-50 --output data/multi_seed.csv \
+        --executable code/elfarol --burn-in 500 [--days 10000]
 
-The simulator binary is expected to:
-    1. Read the seed from a command-line argument or environment variable
-       (modify Project1.cpp's `srand` call to read `getenv("SEED")` or
-       `argv[1]`).
-    2. Write daily attendance to stdout, one integer per line, for
-       EXPT_LENGTH days.
-
-This script is a template; depending on how the binary is wired, the
-subprocess call below may need adjustment.
+The simulator is expected to:
+    1. Take seed and number-of-days as positional args: `./elfarol SEED DAYS`
+    2. Write per-day output to stdout as one line per day:
+        `day attendance use[0] use[1] ... use[20]`
+    (The `code/main.cpp` shipped here matches this contract.)
 """
 
 import argparse
 import csv
-import os
 import statistics
 import subprocess
 import sys
@@ -43,16 +38,20 @@ def parse_seed_spec(spec):
     return seeds
 
 
-def run_one(executable, seed):
+def run_one(executable, seed, days):
     """Run the simulator with a given seed; return list of attendance ints."""
-    env = os.environ.copy()
-    env["SEED"] = str(seed)
     proc = subprocess.run(
-        [str(executable), str(seed)], capture_output=True, text=True, env=env
+        [str(executable), str(seed), str(days)],
+        capture_output=True, text=True,
     )
     if proc.returncode != 0:
         raise RuntimeError(f"seed {seed}: simulator failed: {proc.stderr}")
-    return [int(x) for x in proc.stdout.split() if x.strip()]
+    attendance = []
+    for line in proc.stdout.splitlines():
+        tokens = line.split()
+        if len(tokens) >= 2:
+            attendance.append(int(tokens[1]))
+    return attendance
 
 
 def summarize(series, burn_in, threshold):
@@ -80,6 +79,7 @@ def main():
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--executable", required=True, type=Path)
     parser.add_argument("--burn-in", type=int, default=500)
+    parser.add_argument("--days", type=int, default=10000)
     parser.add_argument("--threshold", type=int, default=60)
     args = parser.parse_args()
 
@@ -87,13 +87,14 @@ def main():
     rows = []
     for seed in seeds:
         try:
-            series = run_one(args.executable, seed)
+            series = run_one(args.executable, seed, args.days)
             stats = summarize(series, args.burn_in, args.threshold)
             stats["seed"] = seed
             rows.append(stats)
             print(
-                f"seed {seed}: mean={stats['mean']:.2f} median={stats['median']} "
-                f"sd={stats['sd']:.2f} ac={stats['lag1_ac']:.3f}"
+                f"seed {seed:3d}: mean={stats['mean']:6.2f} "
+                f"median={stats['median']:5.1f} sd={stats['sd']:6.2f} "
+                f"lag1_ac={stats['lag1_ac']:.3f}"
             )
         except RuntimeError as exc:
             print(f"seed {seed}: ERROR ({exc})", file=sys.stderr)

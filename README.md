@@ -35,89 +35,122 @@ The paper argues that simulations of Arthur's (1994) El Farol Bar Problem implem
 
 ## The 21 predictors in Arthur's code
 
-Each agent monitors a random subset of `MAXHEED = 10` predictors out of these 21. Each predictor maps the recent history of attendance to a forecast for the next period. The predictors are defined in `code/forecast.h`.
+Each agent monitors a random subset of `MAXHEED = 10` predictors out of these 21. Each predictor maps the recent history of attendance to a forecast for the next period. The predictors are defined in `code/forecast.h`; the labels follow `code/global.h`.
 
-| ID | Description |
-|----|-------------|
-| 0  | Constant `CRITNUM = 60` (always forecasts 60) |
-| 1  | Constant `CRITNUM + 1 = 61` |
-| 2  | Same as last week |
-| 3  | Same as 2 weeks ago |
-| 4  | Same as 5 weeks ago |
-| 5  | Average of the last 4 weeks |
-| 6  | Average of the last 8 weeks |
-| 7  | Constant 50 |
-| 8  | Trend: extrapolate from the last 2 weeks |
-| 9  | Trend: extrapolate from the last 4 weeks |
-| 10 | Mirror image of last week around 50 |
-| 11 | Mirror image of two weeks ago around 50 |
-| 12 | Cycle detector: 2-week period |
-| 13 | Cycle detector: 5-week period |
-| 14 | Cycle detector: 12-week period |
-| 15 | Bounded last-week, capped at 95 / floored at 5 |
-| 16 | Random walk last-week + jitter |
-| 17 | Average of last 12 weeks |
-| 18 | Mean reversion to 60 |
-| 19 | Linear regression on last 6 weeks |
-| 20 | Constant 75 |
+| ID | Label | Forecast rule |
+|----|-------|---------------|
+| 0  | R.e.e. (rational expectations) | constant `CRITNUM` $= 60$ |
+| 1  | Near r.e.e. | constant `CRITNUM + 1` $= 61$ |
+| 2  | Extrapolator | `hist[0] + (hist[0] - hist[1])`, capped to $[0, 100]$ |
+| 3  | Reflect around half | $100 - $ `hist[0]` |
+| 4  | Too many?1 | if `hist[0] > 80` → 30; if `hist[0] < 20` → 70; else `hist[0]` |
+| 5  | Too many?2 | if `hist[0] > 70` → 40; if `hist[0] < 30` → 60; else `hist[0]` |
+| 6  | Too many?3 | if `hist[0] > 90` → 10; if `hist[0] < 10` → 90; else `hist[0]` |
+| 7  | Fifty | constant 50 |
+| 8  | Trend/rev1 | extrapolate using the gap to `hist[4]`, with extreme-case reversal |
+| 9  | Trend/rev2 | extrapolate using the gap to `hist[2]`, with extreme-case reversal |
+| 10 | Av. prev 3 | average of `hist[0], hist[1], hist[2]` |
+| 11 | Same last | `hist[0]` (same as last week) |
+| 12 | 2-cycle | `hist[1]` |
+| 13 | 3-cycle | `hist[2]` |
+| 14 | 4-cycle | `hist[3]` |
+| 15 | 5-cycle | `hist[4]` |
+| 16 | 6-cycle | `hist[5]` |
+| 17 | 7-cycle | `hist[6]` |
+| 18 | 8-cycle | `hist[7]` |
+| 19 | 9-cycle | `hist[8]` |
+| 20 | 10-cycle | `hist[9]` |
 
-Predictors 0 and 1 are the *anchor* predictors; together they account for ~77% of agent choices in the seed-42 run (see paper, Section 4.4).
-
-> **Note**: This table is reconstructed from inspection of `forecast.h`. Verify against the source for exact arithmetic.
+Predictors 0 and 1 are the *anchor* predictors; together they account for roughly 77% of agent choices in the seed-42 run (see paper, Section 4.4). Predictor 7 is a third constant (forecast 50) that the paper calls out as the most prominent non-anchor.
 
 ## How to reproduce the figures
 
 ### Prerequisites
 
-- A C++ compiler (gcc/clang/MSVC). The original code targets a Borland C++ Builder environment (`condefs.h`); on modern Unix-like systems it requires minor adaptation: remove the `#include <condefs.h>` line and link against the standard library.
-- Python 3.10+ with `numpy`, `scipy`, `matplotlib`.
+- A C++ compiler (gcc, clang, or MSVC). Tested with Apple clang on macOS.
+- Python 3.10+. The post-processing scripts use only the standard library.
 
-### Build instructions (POSIX)
+### One-shot reproduction
+
+```bash
+bash scripts/reproduce_all.sh
+```
+
+This builds the simulator, runs the seed-42 simulation for 10,000 periods, regenerates the Figure 1 and Figure 2 data files, computes the predictor-use summary, and runs the 50-seed robustness sweep. It also prints the Section 4.2 statistics for verification.
+
+### Step-by-step
+
+**Build the simulator.**
 
 ```bash
 cd code
-# Adapt Project1.cpp for modern compilers (remove condefs.h include)
-sed -i.bak 's|#include <condefs.h>||' Project1.cpp
-g++ -O2 -o elfarol Project1.cpp
+make
 ```
 
-### Reproducing the seed-42 run
+This produces `code/elfarol`. The binary takes two arguments:
 
-The original code uses `srand(time(NULL))`. To get the seed-42 results in the paper:
-
-1. Edit `Project1.cpp`: change `srand(time(NULL))` to `srand(42)`.
-2. Edit `define.h`: change `EXPT_LENGTH` from 500 to 10000.
-3. Recompile and run:
-
-```bash
-g++ -O2 -o elfarol Project1.cpp
-./elfarol
+```
+./elfarol SEED DAYS
 ```
 
-This produces two files in the working directory:
+and writes one line per day to stdout:
 
-- `plot`: one integer per line, the daily attendance count over 10,000 days.
-- `log`: per-day list of which predictors each agent used.
+```
+day attendance use[0] use[1] ... use[20]
+```
 
-### Computing figure data from raw output
+where `use[k]` is the number of agents who used predictor `k` that day.
 
-> **Status:** Reproduction scripts are in `scripts/` and are under active development. The `.dat` files in `data/` were generated by ad-hoc post-processing during paper development; the scripts in `scripts/` reconstruct them from raw simulator output for full reproducibility.
+**Run the seed-42 simulation.**
 
 ```bash
-cd ../scripts
-python figure1_data.py ../code/plot ../data/arthurs_300days.dat
-python figure2_data.py ../code/plot ../data/arthurs_conditional.dat
+./elfarol 42 10000 > ../data/seed42_full.dat
+```
+
+**Generate figure data.**
+
+```bash
+cd ..
+awk '{print NR, $2}' data/seed42_full.dat > data/arthurs_attendance.dat
+python3 scripts/figure1_data.py data/arthurs_attendance.dat data/arthurs_300days.dat
+python3 scripts/figure2_data.py data/arthurs_attendance.dat data/arthurs_conditional.dat
+python3 scripts/predictor_use_summary.py data/seed42_full.dat data/predictor_use_summary.csv
+```
+
+The paper's Figures 1 and 2 are rendered by LaTeX/`pgfplots` directly from `arthurs_300days.dat` and `arthurs_conditional.dat`.
+
+**Verify the Section 4.2 statistics.**
+
+```bash
+python3 scripts/moments.py data/arthurs_attendance.dat --burn-in 500
+```
+
+Expected output (matching the paper):
+
+```
+mean         57.86
+median       60
+sd           13.27
+lag-1 AC     -0.33
+above/below/at 60: 4717/4527/256   (post-burn-in)
+WW runs      6946
+WW z-stat    48.39
 ```
 
 ### Multi-seed robustness
 
-The paper reports robustness across 50 seeds (mean within ±1.5 of 60, median exactly 60 in 72% of runs, lag-1 autocorrelation always strongly negative). To regenerate this:
-
 ```bash
-python scripts/multi_seed.py --seeds 1-50 --output data/multi_seed.csv
+python3 scripts/multi_seed.py --seeds 1-50 \
+    --executable code/elfarol \
+    --output data/multi_seed.csv \
+    --burn-in 500 --days 10000
 ```
 
-This runs the simulator 50 times, each with a different seed, and produces a CSV with one row per seed (mean, median, SD, lag-1 AC, Wald-Wolfowitz crossings).
+A precomputed `data/multi_seed.csv` is shipped in the repository for convenience; the command above regenerates it.
+
+### Reproducibility note
+
+The simulation uses C-library `rand()` for randomization, which is libc-dependent. The aggregate moments of the seed-42 attendance series (mean, median, SD, lag-1 AC, runs counts, conditional means) are robust across Linux glibc and Apple Silicon clang builds. The fine-grained predictor-usage shares may differ by 0.5--1.5 percentage points across builds because the random heed-set assignments differ.
 
 ## Figures rendered in the paper
 
