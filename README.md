@@ -12,8 +12,12 @@ The paper argues that simulations of Arthur's (1994) El Farol Bar Problem implem
 .
 ├── README.md              this file
 ├── LICENSE                MIT for new code; Arthur (1994) attribution
-├── code/                  C source code (Arthur's original simulation)
-│   ├── Project1.cpp       main loop
+├── requirements.txt       Python dependency note (stdlib only)
+├── code/                  Simulator sources
+│   ├── Project1.cpp       Arthur's original Borland-flavored main (preserved)
+│   ├── main.cpp           modernized main: takes seed and days as argv, writes
+│                            per-day output to stdout (used by reproduce_all.sh)
+│   ├── Makefile           builds code/elfarol from main.cpp + headers
 │   ├── define.h           parameters (TOTPERSONS=100, CRITNUM=60, ETA=0.05, etc.)
 │   ├── agents.h           agent setup, predictor selection, attendance decisions
 │   ├── forecast.h         the 21 predictors, accuracy update, ranking
@@ -21,16 +25,18 @@ The paper argues that simulations of Arthur's (1994) El Farol Bar Problem implem
 │   ├── extern.h           extern declarations
 │   └── global.h           global state
 ├── data/                  Output data files used to render the paper's figures
-│   ├── arthurs_200days.dat        seed-42, days 1-200 attendance series
-│   ├── arthurs_300days.dat        seed-42, days 1-300 (used for Figure 1)
 │   ├── arthurs_attendance.dat     seed-42, full 10,000-period attendance series
+│   ├── arthurs_300days.dat        seed-42, post-burn-in 300-day window (Figure 1)
 │   ├── arthurs_conditional.dat    E[A_{t+1} | A_t] data for Figure 2
-│   └── arthurs_histogram.dat      cross-sectional predictor-usage histogram
+│   ├── multi_seed.csv             50-seed robustness summary
+│   └── predictor_use_summary.csv  aggregated per-predictor usage shares
 └── scripts/               Python scripts for post-processing and figure data generation
-    ├── figure1_data.py    300-day post-burn-in window for Figure 1
-    ├── figure2_data.py    conditional-mean E[A_{t+1} | A_t] for Figure 2
-    ├── moments.py         summary statistics (mean / median / SD / lag-1 AC / W-W)
-    └── multi_seed.py      run simulator across multiple seeds; CSV summary
+    ├── reproduce_all.sh         one-shot driver: build, simulate, regenerate figures, sweep seeds
+    ├── figure1_data.py          300-day post-burn-in window for Figure 1
+    ├── figure2_data.py          conditional-mean E[A_{t+1} | A_t] for Figure 2
+    ├── moments.py               summary statistics (mean / median / SD / lag-1 AC / W-W)
+    ├── predictor_use_summary.py aggregate predictor-use histogram into CSV
+    └── multi_seed.py            run simulator across multiple seeds; CSV summary
 ```
 
 ## The 21 predictors in Arthur's code
@@ -61,7 +67,7 @@ Each agent monitors a random subset of `MAXHEED = 10` predictors out of these 21
 | 19 | 9-cycle | `hist[8]` |
 | 20 | 10-cycle | `hist[9]` |
 
-Predictors 0 and 1 are the *anchor* predictors; together they account for roughly 77% of agent choices in the seed-42 run (see paper, Section 4.4). Predictor 7 is a third constant (forecast 50) that the paper calls out as the most prominent non-anchor.
+Predictors 0 and 1 are the *anchor* predictors; together they account for roughly 76% of agent choices in the seed-42 run (see paper, Section 4.4). Predictor 7 is a third constant (forecast 50) that the paper calls out as the most prominent non-anchor.
 
 ## How to reproduce the figures
 
